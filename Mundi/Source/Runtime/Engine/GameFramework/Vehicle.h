@@ -30,6 +30,14 @@ public:
 
     UCameraComponent* GetCamera();
 
+    void SwitchToFixedCamera(int32 Index);
+    void ResetToChaseCamera(); // 다시 차량 따라가기 모드로 복귀 (0번 키 등)
+    
+    void OnCameraKey1() { SwitchToFixedCamera(0); }
+    void OnCameraKey2() { SwitchToFixedCamera(1); }
+    void OnCameraKey3() { SwitchToFixedCamera(2); }
+    void OnCameraKey0() { ResetToChaseCamera(); }
+
     /** 부스터 사용 중인지 확인 */
     bool IsBoosting() const { return bIsBoosting; }
 
@@ -54,6 +62,9 @@ public:
     /** 메인 카메라 */
     UPROPERTY(EditAnywhere, Category = "Camera")
     UCameraComponent* Camera;
+
+    UPROPERTY(EditAnywhere, Category = "Camera")
+    TArray<FTransform> CameraTransforms;
 
     /** 이 속도 이상으로 운전하면 스파크 파티클 생성 (km/h) */
     UPROPERTY(EditAnywhere, Category = "Camera")
@@ -145,4 +156,7 @@ protected:
     bool bLeanRightInput;
 
     bool bIsDriverEjected;
+
+    bool bUseFixedCamera;
+    FTransform TargetCameraTransform;
 };

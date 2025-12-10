@@ -28,6 +28,7 @@ AVehicle::AVehicle()
     , bIsDriverEjected(false)
     , ScriptComponent(nullptr)
     , bSparkParticleActive(false)
+    , bUseFixedCamera(false)
 {
     ChassisMesh = CreateDefaultSubobject<UStaticMeshComponent>("ChassisMesh");
     FString ChassisFileName = GDataDir + "/Model/ShoppingCart/ShoppingCart.obj";
@@ -125,6 +126,11 @@ AVehicle::AVehicle()
     DropSoundComponent->bIsLooping = false;
     DropSoundComponent->bAutoPlay = false;
     DropSoundComponent->Volume = 0.8f;
+
+    FTransform DefaultCam;
+    DefaultCam.Translation = FVector(143.0f, 27.0f, 1.0f);
+    DefaultCam.Rotation = FQuat::MakeFromEulerZYX(FVector(0.0f, 0.0f, -90.0f));
+    CameraTransforms.Add(DefaultCam);
 }
 
 AVehicle::~AVehicle()
@@ -240,6 +246,18 @@ void AVehicle::Tick(float DeltaSeconds)
             VehicleMovement->SetThrottleInput(0.0f);
             VehicleMovement->SetBrakeInput(0.0f);
         }
+    }
+
+    if (bUseFixedCamera && Camera)
+    {
+        // SpringArm이 카메라 위치를 매 프레임 갱신하려 하므로,
+        // Tick의 마지막 단계에서 우리가 원하는 World Transform으로 덮어씌웁니다.
+        
+        Camera->SetWorldLocation(TargetCameraTransform.Translation);
+        Camera->SetWorldRotation(TargetCameraTransform.Rotation);
+        
+        // 만약 Scale도 적용하고 싶다면:
+        // Camera->SetWorldScale3D(TargetCameraTransform.GetScale3D());
     }
 
     CurrentForwardInput = 0.0f;
@@ -360,6 +378,16 @@ void AVehicle::SetupPlayerInputComponent(UInputComponent* InInputComponent)
     // VK_SHIFT는 0x10
     InInputComponent->BindAction<AVehicle>("Boost", VK_SHIFT, this, &AVehicle::BoostPressed, &AVehicle::BoostReleased);
     InInputComponent->BindAction<AVehicle>("Boost", (int32)EGamepadButton::R_SHOULDER, this, &AVehicle::BoostPressed, &AVehicle::BoostReleased);
+
+    // 숫자 1 (ASCII 49) -> 0번 인덱스 카메라
+    InInputComponent->BindAction<AVehicle>("CamPos1", '1', this, &AVehicle::OnCameraKey1, nullptr);
+    // 숫자 2 (ASCII 50) -> 1번 인덱스 카메라
+    InInputComponent->BindAction<AVehicle>("CamPos2", '2', this, &AVehicle::OnCameraKey2, nullptr);
+    // 숫자 3 (ASCII 51) -> 2번 인덱스 카메라
+    InInputComponent->BindAction<AVehicle>("CamPos3", '3', this, &AVehicle::OnCameraKey3, nullptr);
+
+    // 숫자 0 (ASCII 48) -> 원래 시점으로 복귀
+    InInputComponent->BindAction<AVehicle>("ResetCam", '0', this, &AVehicle::OnCameraKey0, nullptr);
 }
 
 void AVehicle::EjectDriver(const FVector& Impulse)
@@ -403,6 +431,29 @@ void AVehicle::EjectDriver(const FVector& Impulse)
 UCameraComponent* AVehicle::GetCamera()
 {
     return Camera;
+}
+
+void AVehicle::SwitchToFixedCamera(int32 Index)
+{
+    if (Index < CameraTransforms.Num())
+    {
+        bUseFixedCamera = true;
+        TargetCameraTransform = CameraTransforms[Index];
+    }
+}
+
+void AVehicle::ResetToChaseCamera()
+{
+    if (bUseFixedCamera)
+    {
+        bUseFixedCamera = false;
+
+        if (Camera)
+        {
+            Camera->SetRelativeLocation(FVector::Zero());
+            Camera->SetRelativeRotation(FQuat::Identity());
+        }
+    }
 }
 
 void AVehicle::MoveForward(float Val)
